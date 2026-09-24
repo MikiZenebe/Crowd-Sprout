@@ -21,5 +21,9 @@
     "hardhat": "^3.17.0",
     "mocha": "^11.8.0",
     "typescript": "~6.0.3"
+  },
+  "dependencies": {
+    "@nomicfoundation/hardhat-verify": "^3.1.1",
+    "dotenv": "^18.0.3"
   }
 }
