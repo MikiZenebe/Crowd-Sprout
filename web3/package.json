@@ -5,6 +5,7 @@
   "scripts": {
     "compile": "npx hardhat compile",
     "verify": "npx hardhat verify --network sepolia",
+    "deploy": "npx hardhat ignition deploy",
     "test": "npx hardhat test"
   },
   "devDependencies": {
