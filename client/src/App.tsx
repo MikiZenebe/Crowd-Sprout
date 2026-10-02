@@ -1,7 +1,9 @@
 // import heroImg from './assets/hero.png'
+import { Route, Routes } from "react-router-dom";
 import "./App.css";
 import { Sidebar } from "./components";
 import Navbar from "./components/Navbar";
+import CreateCampaign from "./pages/CreateCampaign";
 
 function App() {
   return (
@@ -13,12 +15,12 @@ function App() {
       <div className="flex-1 max-sm:w-full max-w-[1280px] mx-auto sm:pr-5">
         <Navbar />
 
-        {/* <Routes>
-          <Route path="/" element={<Home />} />
-          <Route path="/profile" element={<Profile />} />
+        <Routes>
+          {/* <Route path="/" element={<Home />} /> */}
+          {/* <Route path="/profile" element={<Profile />} /> */}
           <Route path="/create-campaign" element={<CreateCampaign />} />
-          <Route path="/campaign-details/:id" element={<CampaignDetails />} />
-        </Routes> */}
+          {/* <Route path="/campaign-details/:id" element={<CampaignDetails />} /> */}
+        </Routes>
       </div>
     </div>
   );
