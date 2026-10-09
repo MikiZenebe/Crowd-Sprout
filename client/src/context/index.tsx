@@ -161,11 +161,13 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
   );
 };
 
+// This hook shares the provider's context and must remain in this module.
+// eslint-disable-next-line react-refresh/only-export-components
 export const useCampaign = (): CampaignContextType => {
   const context = useContext(CampaignContext);
 
   if (!context) {
-    throw new Error("useCampaign must be used within a Campaign Provider");
+    throw new Error("useCampaign must be used inside CampaignProvider");
   }
 
   return context;
