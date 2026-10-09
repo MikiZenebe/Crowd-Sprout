@@ -5,13 +5,16 @@ const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS;
 
 export const etherscanApi = createApi({
   reducerPath: "etherscanApi",
-  baseQuery: fetchBaseQuery({ baseUrl: "https://api.etherscan.io/v2/" }),
+  baseQuery: fetchBaseQuery({ baseUrl: "https://api.etherscan.io/v2/api" }),
   endpoints: (builder) => ({
     getContractABI: builder.query<string, void>({
       query: () =>
-        `api?module=contract&action=getabi&address=${contractAddress}&apikey=${etherscan}`,
-      transformResponse: (response: { status: string; message: string; result: string }) => 
-        response.result,
+        `?chainid=11155111&module=contract&action=getabi&address=${contractAddress}&apikey=${etherscan}`,
+      transformResponse: (response: {
+        status: string;
+        message: string;
+        result: string;
+      }) => response.result,
     }),
   }),
 });
