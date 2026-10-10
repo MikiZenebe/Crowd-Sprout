@@ -6,7 +6,6 @@ import { useGetContractABIQuery } from "../utils/api";
 const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS;
 
 interface CampaignForm {
-  name: string;
   title: string;
   description: string;
   target: string;

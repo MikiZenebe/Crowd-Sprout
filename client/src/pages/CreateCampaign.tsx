@@ -3,13 +3,70 @@ import { useNavigate } from "react-router-dom";
 
 import { useGetContractABIQuery } from "../utils/api";
 import { useCampaign } from "../context";
+import { PinataSDK } from "pinata";
+
+const pinata = new PinataSDK({
+  pinataJwt: "",
+  pinataGateway: import.meta.env.VITE_GATEWAY_URL,
+});
 
 const CreateCampaign = () => {
   const navigate = useNavigate();
   const { createCampaign, isCreating } = useCampaign();
 
+  const [file, setFile] = useState<File | null>(null);
+  const [uploadStatus, setUploadStatus] = useState("");
+  const [link, setLink] = useState("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      setFile(e.target.files[0]);
+    }
+  };
+
+  const handleUpload = async () => {
+    if (!file) return;
+
+    try {
+      setUploadStatus("Getting upload URL...");
+
+      const urlResponse = await fetch(
+        `${import.meta.env.VITE_SERVER_URL}/presigned_url`,
+        {
+          method: "GET",
+          headers: {
+            // Handle your own server authorization here
+          },
+        },
+      );
+
+      const data = await urlResponse.json();
+
+      setUploadStatus("Uploading file...");
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const upload = (await pinata.upload.public
+        .file(file)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .url(data.url)) as any;
+      const cid = upload?.cid || upload?.data?.cid;
+
+      if (cid) {
+        setUploadStatus("File uploaded successfully!");
+        const ipfsLink = await pinata.gateways.public.convert(cid);
+        setLink(ipfsLink);
+        setForm((prev) => ({ ...prev, image: ipfsLink }));
+      } else {
+        setUploadStatus("Upload failed");
+      }
+    } catch (error) {
+      setUploadStatus(
+        `Error: ${error instanceof Error ? error.message : String(error)}`,
+      );
+    }
+  };
+
   const [form, setForm] = useState({
-    name: "",
     title: "",
     description: "",
     target: "",
@@ -75,19 +132,6 @@ const CreateCampaign = () => {
 
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-8">
           <div className="flex flex-col sm:flex-row gap-8">
-            <div className="flex flex-col gap-3 flex-1">
-              <label className="text-xs font-bold text-[#808191] uppercase tracking-wider">
-                Your Name
-              </label>
-              <input
-                required
-                type="text"
-                placeholder="John Doe"
-                className="w-full py-4 px-5 rounded-xl bg-[#1c1c24] border border-[#2c2f32] focus:border-[#1dc071] focus:ring-1 focus:ring-[#1dc071] outline-none transition-all text-white placeholder-[#4b5264]"
-                value={form.name}
-                onChange={(e) => handleFormFieldChange("name", e)}
-              />
-            </div>
             <div className="flex flex-col gap-3 flex-1">
               <label className="text-xs font-bold text-[#808191] uppercase tracking-wider">
                 Campaign Title
@@ -162,16 +206,212 @@ const CreateCampaign = () => {
 
           <div className="flex flex-col gap-3">
             <label className="text-xs font-bold text-[#808191] uppercase tracking-wider">
-              Campaign image URL
+              Campaign image
             </label>
-            <input
-              required
-              type="url"
-              placeholder="Place image URL of your campaign"
-              className="w-full py-4 px-5 rounded-xl bg-[#1c1c24] border border-[#2c2f32] focus:border-[#1dc071] focus:ring-1 focus:ring-[#1dc071] outline-none transition-all text-white placeholder-[#4b5264]"
-              value={form.image}
-              onChange={(e) => handleFormFieldChange("image", e)}
-            />
+
+            {link ? (
+              <div className="w-full h-64 rounded-xl overflow-hidden relative group border border-[#2c2f32]">
+                <img
+                  src={link}
+                  alt="campaign"
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setLink("");
+                      setFile(null);
+                      setUploadStatus("");
+                      setForm((prev) => ({ ...prev, image: "" }));
+                    }}
+                    className="bg-red-500 hover:bg-red-600 text-white px-5 py-3 rounded-xl font-semibold transition-all flex items-center gap-2 shadow-[0_4px_14px_0_rgba(239,68,68,0.39)] hover:shadow-[0_6px_20px_rgba(239,68,68,0.23)] hover:-translate-y-[1px]"
+                  >
+                    <svg
+                      className="w-5 h-5"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                      xmlns="http://www.w3.org/2000/svg"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth="2"
+                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                      ></path>
+                    </svg>
+                    Remove Image
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                <div className="flex flex-col items-center justify-center w-full">
+                  <label className="flex flex-col items-center justify-center w-full h-48 border-2 border-[#2c2f32] border-dashed rounded-xl cursor-pointer bg-[#1c1c24] hover:bg-[#23232d] hover:border-[#1dc071] transition-all overflow-hidden relative group">
+                    <div className="flex flex-col items-center justify-center pt-5 pb-6">
+                      {file ? (
+                        <div className="flex flex-col items-center">
+                          <div className="w-12 h-12 mb-3 rounded-full bg-[#1dc071]/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                            <svg
+                              className="w-6 h-6 text-[#1dc071]"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                              ></path>
+                            </svg>
+                          </div>
+                          <p className="mb-2 text-sm text-[#808191] max-w-[200px] sm:max-w-[300px] truncate">
+                            <span className="font-semibold text-white">
+                              {file.name}
+                            </span>
+                          </p>
+                          <p className="text-xs text-[#808191]">
+                            Click to change file
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="w-12 h-12 mb-3 rounded-full bg-[#2c2f32] flex items-center justify-center group-hover:bg-[#3a3f45] group-hover:scale-110 transition-all">
+                            <svg
+                              className="w-6 h-6 text-[#808191] group-hover:text-white transition-colors"
+                              fill="none"
+                              stroke="currentColor"
+                              viewBox="0 0 24 24"
+                              xmlns="http://www.w3.org/2000/svg"
+                            >
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth="2"
+                                d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
+                              ></path>
+                            </svg>
+                          </div>
+                          <p className="mb-2 text-sm text-[#808191]">
+                            <span className="font-semibold text-white">
+                              Click to upload
+                            </span>{" "}
+                            or drag and drop
+                          </p>
+                          <p className="text-xs text-[#808191]">
+                            PNG, JPG, GIF up to 10MB
+                          </p>
+                        </>
+                      )}
+                    </div>
+                    <input
+                      type="file"
+                      className="hidden"
+                      onChange={handleFileChange}
+                      accept="image/*"
+                    />
+                  </label>
+                </div>
+
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 mt-2">
+                  <button
+                    type="button"
+                    onClick={handleUpload}
+                    disabled={
+                      !file ||
+                      uploadStatus === "Uploading file..." ||
+                      uploadStatus === "Getting upload URL..." ||
+                      uploadStatus === "File uploaded successfully!"
+                    }
+                    className={`py-3 px-6 font-bold rounded-xl transition-all flex items-center justify-center gap-2 w-full sm:w-auto
+                      ${
+                        !file || uploadStatus === "File uploaded successfully!"
+                          ? "bg-[#2c2f32] text-[#808191] cursor-not-allowed"
+                          : "bg-[#8c6dfd] hover:bg-[#7a5ce0] text-white shadow-[0_4px_14px_0_rgba(140,109,253,0.39)] hover:shadow-[0_6px_20px_rgba(140,109,253,0.23)] hover:-translate-y-[1px]"
+                      }`}
+                  >
+                    {uploadStatus === "Uploading file..." ||
+                    uploadStatus === "Getting upload URL..." ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        Uploading...
+                      </>
+                    ) : (
+                      <>
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                          ></path>
+                        </svg>
+                        Upload to Pinata
+                      </>
+                    )}
+                  </button>
+
+                  {uploadStatus && (
+                    <div
+                      className={`flex items-center gap-2 text-sm font-medium px-4 py-3 rounded-xl w-full sm:w-auto
+                      ${
+                        uploadStatus.includes("Error") ||
+                        uploadStatus.includes("failed")
+                          ? "bg-red-500/10 text-red-500 border border-red-500/20"
+                          : uploadStatus === "File uploaded successfully!"
+                            ? "bg-[#1dc071]/10 text-[#1dc071] border border-[#1dc071]/20"
+                            : "text-[#808191]"
+                      }`}
+                    >
+                      {uploadStatus.includes("Error") ||
+                      uploadStatus.includes("failed") ? (
+                        <svg
+                          className="w-4 h-4 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
+                        </svg>
+                      ) : uploadStatus === "File uploaded successfully!" ? (
+                        <svg
+                          className="w-4 h-4 shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                          xmlns="http://www.w3.org/2000/svg"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth="2"
+                            d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
+                          ></path>
+                        </svg>
+                      ) : (
+                        <div className="w-4 h-4 border-2 border-[#808191] border-t-transparent rounded-full animate-spin shrink-0" />
+                      )}
+                      <span className="truncate">{uploadStatus}</span>
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
           </div>
 
           <div className="mt-4">
