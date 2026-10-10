@@ -1,10 +1,13 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+
 import { useGetContractABIQuery } from "../utils/api";
+import { useCampaign } from "../context";
 
 const CreateCampaign = () => {
   const navigate = useNavigate();
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const { createCampaign, isCreating } = useCampaign();
+
   const [form, setForm] = useState({
     name: "",
     title: "",
@@ -21,15 +24,22 @@ const CreateCampaign = () => {
     setForm({ ...form, [fieldName]: e.target.value });
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    // Simulate API call for static version
-    setTimeout(() => {
-      setIsSubmitting(false);
-      alert("Campaign created successfully (Static Version)!");
+
+    try {
+      const receipt = await createCampaign(form);
+
+      if (!receipt) {
+        return;
+      }
+
+      alert(`Campaign created successfully!\n\nTransaction: ${receipt.hash}`);
+
       navigate("/");
-    }, 1500);
+    } catch (error) {
+      console.error(error);
+    }
   };
 
   const { data: contractABI } = useGetContractABIQuery();
@@ -37,9 +47,19 @@ const CreateCampaign = () => {
 
   return (
     <div className="flex flex-col items-center py-12 px-4 sm:px-10 text-white w-full">
-      {isSubmitting && (
+      {isCreating && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-[#13131a]/80 backdrop-blur-md">
-          <div className="w-16 h-16 border-4 border-[#1dc071] border-t-transparent rounded-full animate-spin"></div>
+          <div className="flex flex-col items-center gap-5">
+            <div className="w-16 h-16 border-4 border-[#1dc071] border-t-transparent rounded-full animate-spin" />
+
+            <p className="text-white font-semibold">
+              Waiting for transaction...
+            </p>
+
+            <p className="text-[#808191] text-sm">
+              Please confirm the transaction in MetaMask.
+            </p>
+          </div>
         </div>
       )}
 

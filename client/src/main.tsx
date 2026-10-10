@@ -5,13 +5,16 @@ import { store } from "./store/store.ts";
 import "./index.css";
 import App from "./App.tsx";
 import { BrowserRouter } from "react-router-dom";
+import { CampaignProvider } from "./context/index.tsx";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <Provider store={store}>
-      <BrowserRouter>
-        <App />
-      </BrowserRouter>
+      <CampaignProvider>
+        <BrowserRouter>
+          <App />
+        </BrowserRouter>
+      </CampaignProvider>
     </Provider>
   </StrictMode>,
 );
