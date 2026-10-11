@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 
-import { useGetContractABIQuery } from "../utils/api";
+import CrowdFundingABI from "../constants/CrowdFunding.json";
 import { useCampaign } from "../context";
 import { PinataSDK } from "pinata";
 
@@ -12,7 +12,7 @@ const pinata = new PinataSDK({
 
 const CreateCampaign = () => {
   const navigate = useNavigate();
-  const { createCampaign, isCreating } = useCampaign();
+  const { createCampaign, isCreating, error } = useCampaign();
 
   const [file, setFile] = useState<File | null>(null);
   const [uploadStatus, setUploadStatus] = useState("");
@@ -99,8 +99,7 @@ const CreateCampaign = () => {
     }
   };
 
-  const { data: contractABI } = useGetContractABIQuery();
-  console.log("Contract ABI:", contractABI); // Log the fetched contract ABI for debugging
+  console.log("Contract ABI:", CrowdFundingABI);
 
   return (
     <div className="flex flex-col items-center py-12 px-4 sm:px-10 text-white w-full">
@@ -129,6 +128,34 @@ const CreateCampaign = () => {
             Bring your vision to life. Provide details to start raising funds.
           </p>
         </div>
+
+        {error && (
+          <div className="p-5 rounded-2xl bg-[#ef4444]/10 border border-[#ef4444]/30 text-white flex items-start gap-4 shadow-lg backdrop-blur-sm">
+            <div className="w-8 h-8 rounded-full bg-[#ef4444]/20 flex items-center justify-center shrink-0 mt-0.5 text-[#ef4444]">
+              <svg
+                className="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth="2"
+                  d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+                />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <h4 className="font-bold text-[#ef4444] text-base">
+                Transaction Error
+              </h4>
+              <p className="text-sm text-gray-300 mt-1 leading-relaxed">
+                {error}
+              </p>
+            </div>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="w-full flex flex-col gap-8">
           <div className="flex flex-col sm:flex-row gap-8">

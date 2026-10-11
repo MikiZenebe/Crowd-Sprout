@@ -1,7 +1,7 @@
 import { createContext, useContext, useState, type ReactNode } from "react";
 import { ethers } from "ethers";
 
-import { useGetContractABIQuery } from "../utils/api";
+import CrowdFundingABI from "../constants/CrowdFunding.json";
 
 const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS;
 
@@ -31,8 +31,6 @@ interface CampaignProviderProps {
 }
 
 export const CampaignProvider = ({ children }: CampaignProviderProps) => {
-  const { data: abi, isLoading: isAbiLoading } = useGetContractABIQuery();
-
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -73,9 +71,6 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
         throw new Error("MetaMask is not installed");
       }
 
-      if (!abi) {
-        throw new Error("Contract ABI is not loaded");
-      }
 
       if (!contractAddress) {
         throw new Error("Contract address is missing.");
@@ -84,6 +79,39 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
       /* Create browser provider */
       const provider = new ethers.BrowserProvider(window.ethereum);
 
+      /* Verify network is Sepolia (11155111 / 0xaa36a7) */
+      const network = await provider.getNetwork();
+      if (network.chainId !== 11155111n) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0xaa36a7" }],
+          });
+        } catch (switchError: unknown) {
+          const switchErr = switchError as { code?: number };
+          if (switchErr?.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0xaa36a7",
+                  chainName: "Sepolia test network",
+                  nativeCurrency: {
+                    name: "Sepolia Ether",
+                    symbol: "SEP",
+                    decimals: 18,
+                  },
+                  rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+                  blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                },
+              ],
+            });
+          } else {
+            throw switchError;
+          }
+        }
+      }
+
       /* Get signer */
       const signer = await provider.getSigner();
 
@@ -91,7 +119,11 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
       const owner = await signer.getAddress();
 
       /* Create contract instance */
-      const contract = new ethers.Contract(contractAddress, abi, signer);
+      const contract = new ethers.Contract(
+        contractAddress,
+        CrowdFundingABI,
+        signer,
+      );
 
       /*
        * Convert ETH -> wei
@@ -132,11 +164,30 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
       const receipt = await transaction.wait();
 
       return receipt;
-    } catch (error) {
+    } catch (error: unknown) {
       console.error("Create campaign error:", error);
 
-      const message =
-        error instanceof Error ? error.message : "Failed to create campaign.";
+      let message = "Failed to create campaign.";
+      const errorStr = String(error);
+      const errorObj = error as { message?: string; code?: unknown };
+
+      if (
+        errorStr.includes("403") ||
+        errorStr.includes("eth_gasPrice") ||
+        errorStr.includes("RPC endpoint returned HTTP client error")
+      ) {
+        message =
+          "MetaMask RPC Error (HTTP 403 Forbidden): Your wallet's configured RPC endpoint for Sepolia rejected the request. Please update your Sepolia RPC URL in MetaMask (Settings > Networks > Sepolia) to a working endpoint such as https://ethereum-sepolia-rpc.publicnode.com or https://rpc.sepolia.org.";
+      } else if (
+        errorStr.includes("user rejected") ||
+        errorStr.includes("ACTION_REJECTED") ||
+        errorObj?.code === 4001 ||
+        errorObj?.code === "ACTION_REJECTED"
+      ) {
+        message = "Transaction rejected in MetaMask.";
+      } else if (error instanceof Error) {
+        message = error.message;
+      }
 
       setError(message);
 
@@ -150,7 +201,7 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
     <CampaignContext.Provider
       value={{
         createCampaign,
-        isCreating: isCreating || isAbiLoading,
+        isCreating,
         error,
         connectWallet,
       }}

@@ -1,4 +1,8 @@
 import { FiHome, FiPlusSquare, FiCreditCard, FiArrowUpRight, FiUser, FiLogOut } from "react-icons/fi";
+import CrowdFundingABI from "./CrowdFunding.json";
+
+export { CrowdFundingABI };
+export const abi = CrowdFundingABI;
 
 export const navlinks = [
   {
