@@ -238,6 +238,7 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       return campaigns.map(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         (campaign: any, i: number): Campaign => ({
           pId: i,
           owner: campaign.owner,
