@@ -13,13 +13,26 @@ interface CampaignForm {
   image: string;
 }
 
+export interface Campaign {
+  pId: number;
+  owner: string;
+  title: string;
+  description: string;
+  target: bigint;
+  deadline: bigint;
+  amountCollected: bigint;
+  image: string;
+}
+
 interface CampaignContextType {
   createCampaign: (
     form: CampaignForm,
   ) => Promise<ethers.TransactionReceipt | null>;
+  getCampaign: () => Promise<Campaign[]>;
   isCreating: boolean;
   error: string | null;
   connectWallet: () => Promise<string | null>;
+  address: string | null;
 }
 
 const CampaignContext = createContext<CampaignContextType | undefined>(
@@ -31,6 +44,7 @@ interface CampaignProviderProps {
 }
 
 export const CampaignProvider = ({ children }: CampaignProviderProps) => {
+  const [address, setAddress] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,9 +60,10 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
       await provider.send("eth_requestAccounts", []);
 
       const signer = await provider.getSigner();
-      const address = await signer.getAddress();
+      const userAddress = await signer.getAddress();
+      setAddress(userAddress);
 
-      return address;
+      return userAddress;
     } catch (error) {
       const message =
         error instanceof Error ? error.message : "Failed to connect wallet.";
@@ -70,7 +85,6 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
       if (!window.ethereum) {
         throw new Error("MetaMask is not installed");
       }
-
 
       if (!contractAddress) {
         throw new Error("Contract address is missing.");
@@ -197,13 +211,64 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
     }
   };
 
+  /* Fetch all campaigns from the smart contract*/
+  const getCampaign = async (): Promise<Campaign[]> => {
+    try {
+      setError(null);
+
+      if (!contractAddress) {
+        throw new Error("Contract address is missing.");
+      }
+
+      if (!window.ethereum) {
+        throw new Error("MetaMask is not installed.");
+      }
+
+      // Read-only provider: no MetaMask connection required
+      const provider = new ethers.BrowserProvider(window.ethereum);
+
+      const contract = new ethers.Contract(
+        contractAddress,
+        CrowdFundingABI,
+        provider,
+      );
+
+      // Call the getter defined in your smart contract
+      const campaigns = await contract.getCampaigns();
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      return campaigns.map(
+        (campaign: any, i: number): Campaign => ({
+          pId: i,
+          owner: campaign.owner,
+          title: campaign.title,
+          description: campaign.description,
+          target: campaign.target,
+          deadline: campaign.deadline,
+          amountCollected: campaign.amountCollected,
+          image: campaign.image,
+        }),
+      );
+    } catch (error) {
+      console.error("Get campaigns error:", error);
+
+      const message =
+        error instanceof Error ? error.message : "Failed to fetch campaigns.";
+
+      setError(message);
+      return [];
+    }
+  };
+
   return (
     <CampaignContext.Provider
       value={{
         createCampaign,
+        getCampaign,
         isCreating,
         error,
         connectWallet,
+        address,
       }}
     >
       {children}

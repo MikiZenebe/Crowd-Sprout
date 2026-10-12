@@ -43,8 +43,6 @@ const CreateCampaign = () => {
       const data = await urlResponse.json();
 
       setUploadStatus("Uploading file...");
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const upload = (await pinata.upload.public
         .file(file)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

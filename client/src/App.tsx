@@ -4,6 +4,7 @@ import "./App.css";
 import { Sidebar } from "./components";
 import Navbar from "./components/Navbar";
 import CreateCampaign from "./pages/CreateCampaign";
+import Home from "./pages/Home";
 
 function App() {
   return (
@@ -16,7 +17,7 @@ function App() {
         <Navbar />
 
         <Routes>
-          {/* <Route path="/" element={<Home />} /> */}
+          <Route path="/" element={<Home />} />
           {/* <Route path="/profile" element={<Profile />} /> */}
           <Route path="/create-campaign" element={<CreateCampaign />} />
           {/* <Route path="/campaign-details/:id" element={<CampaignDetails />} /> */}
