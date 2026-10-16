@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { FiArrowLeft } from "react-icons/fi";
 import { useCampaign, type Campaign } from "../context";
-import { daysLeft, calculateBarPercentage } from "../utils";
+import { daysLeft, calculateBarPercentage, parseBlockchainError } from "../utils";
 import CampaignTopBar from "../components/campaign-details/CampaignTopBar";
 import CampaignHero from "../components/campaign-details/CampaignHero";
 import CreatorCard from "../components/campaign-details/CreatorCard";
@@ -18,7 +18,7 @@ interface DonatorItem {
 const CampaignDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { address } = useCampaign();
+  const { address, donate, isDonating, error } = useCampaign();
 
   // Campaign state: prioritize location.state, fallback to fetching by id
   const [campaign] = useState<Campaign | null>(
@@ -30,9 +30,8 @@ const CampaignDetails = () => {
 
   // Donation form state
   const [donationAmount, setDonationAmount] = useState<string>("0.05");
-  const [isDonating] = useState(false);
-  const [txHash] = useState<string | null>(null);
-  const [donationError] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
+  const [donationError, setDonationError] = useState<string | null>(null);
 
   // Copy address state
   const [copied, setCopied] = useState(false);
@@ -73,6 +72,35 @@ const CampaignDetails = () => {
       navigator.clipboard.writeText(campaign.owner);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const handleDonate = async () => {
+    setDonationError(null);
+    setTxHash(null);
+
+    const amt = parseFloat(donationAmount);
+    if (!donationAmount || isNaN(amt) || amt <= 0) {
+      setDonationError(
+        "Please enter a valid ETH donation amount greater than 0.",
+      );
+      return;
+    }
+
+    try {
+      const receipt = await donate(campaign!.pId, donationAmount);
+
+      if (!receipt) {
+        setDonationError(
+          error || "Donation failed. Please check your wallet balance and network.",
+        );
+        return;
+      }
+
+      setTxHash(receipt.hash);
+    } catch (err: unknown) {
+      const message = parseBlockchainError(err);
+      setDonationError(message);
     }
   };
 
@@ -166,13 +194,17 @@ const CampaignDetails = () => {
         {/* Right Column: Sticky Backing & Contribution Widget */}
         <aside className="lg:col-span-4">
           <DonationPanel
+            onDonate={handleDonate}
             address={address}
             donationAmount={donationAmount}
-            setDonationAmount={setDonationAmount}
+            setDonationAmount={(amt: string) => {
+              setDonationAmount(amt);
+              if (donationError) setDonationError(null);
+            }}
             isDonating={isDonating}
             isExpired={isExpired}
             txHash={txHash}
-            donationError={donationError}
+            donationError={donationError ?? error}
           />
         </aside>
       </section>

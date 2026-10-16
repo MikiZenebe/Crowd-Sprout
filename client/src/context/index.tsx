@@ -2,6 +2,7 @@ import { createContext, useContext, useState, type ReactNode } from "react";
 import { ethers } from "ethers";
 
 import CrowdFundingABI from "../constants/CrowdFunding.json";
+import { parseBlockchainError } from "../utils";
 
 const contractAddress = import.meta.env.VITE_CONTRACT_ADDRESS;
 
@@ -34,6 +35,13 @@ interface CampaignContextType {
   error: string | null;
   connectWallet: () => Promise<string | null>;
   address: string | null;
+
+  donate: (
+    campaignId: number,
+    amount: string,
+  ) => Promise<ethers.TransactionReceipt | null>;
+
+  isDonating: boolean;
 }
 
 const CampaignContext = createContext<CampaignContextType | undefined>(
@@ -48,6 +56,8 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
   const [address, setAddress] = useState<string | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const [isDonating, setIsDonating] = useState(false);
 
   /* Connect MetaMask and return the wallet address */
   const connectWallet = async (): Promise<string | null> => {
@@ -181,31 +191,8 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
       return receipt;
     } catch (error: unknown) {
       console.error("Create campaign error:", error);
-
-      let message = "Failed to create campaign.";
-      const errorStr = String(error);
-      const errorObj = error as { message?: string; code?: unknown };
-
-      if (
-        errorStr.includes("403") ||
-        errorStr.includes("eth_gasPrice") ||
-        errorStr.includes("RPC endpoint returned HTTP client error")
-      ) {
-        message =
-          "MetaMask RPC Error (HTTP 403 Forbidden): Your wallet's configured RPC endpoint for Sepolia rejected the request. Please update your Sepolia RPC URL in MetaMask (Settings > Networks > Sepolia) to a working endpoint such as https://ethereum-sepolia-rpc.publicnode.com or https://rpc.sepolia.org.";
-      } else if (
-        errorStr.includes("user rejected") ||
-        errorStr.includes("ACTION_REJECTED") ||
-        errorObj?.code === 4001 ||
-        errorObj?.code === "ACTION_REJECTED"
-      ) {
-        message = "Transaction rejected in MetaMask.";
-      } else if (error instanceof Error) {
-        message = error.message;
-      }
-
+      const message = parseBlockchainError(error);
       setError(message);
-
       return null;
     } finally {
       setIsCreating(false);
@@ -322,18 +309,124 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
     }
   };
 
+  /* Donate to campaigns */
+  const donate = async (
+    campaignId: number,
+    amount: string,
+  ): Promise<ethers.TransactionReceipt | null> => {
+    try {
+      setIsDonating(true);
+      setError(null);
+
+      if (!window.ethereum) {
+        throw new Error("MetaMask is not installed");
+      }
+
+      if (!contractAddress) {
+        throw new Error("Contract address is missing.");
+      }
+
+      if (!Number.isSafeInteger(campaignId) || campaignId < 0) {
+        throw new Error("Invalid campaign ID.");
+      }
+
+      // Validate the donation amount before opening MetaMask.
+      let donationWei: bigint;
+
+      try {
+        donationWei = ethers.parseEther(amount);
+      } catch (error) {
+        throw new Error("Enter a valid ETH donation amount.", { cause: error });
+      }
+
+      if (donationWei <= 0n) {
+        throw new Error("Donation amount must be greater than zero.");
+      }
+
+      // Request wallet access.
+      await window.ethereum.request({
+        method: "eth_requestAccounts",
+      });
+
+      // Create provider
+      const provider = new ethers.BrowserProvider(window.ethereum);
+
+      // Verify network is Sepolia (11155111 / 0xaa36a7)
+      const network = await provider.getNetwork();
+      if (network.chainId !== 11155111n) {
+        try {
+          await window.ethereum.request({
+            method: "wallet_switchEthereumChain",
+            params: [{ chainId: "0xaa36a7" }],
+          });
+        } catch (switchError: unknown) {
+          const switchErr = switchError as { code?: number };
+          if (switchErr?.code === 4902) {
+            await window.ethereum.request({
+              method: "wallet_addEthereumChain",
+              params: [
+                {
+                  chainId: "0xaa36a7",
+                  chainName: "Sepolia test network",
+                  nativeCurrency: {
+                    name: "Sepolia Ether",
+                    symbol: "SEP",
+                    decimals: 18,
+                  },
+                  rpcUrls: ["https://ethereum-sepolia-rpc.publicnode.com"],
+                  blockExplorerUrls: ["https://sepolia.etherscan.io"],
+                },
+              ],
+            });
+          } else {
+            throw switchError;
+          }
+        }
+      }
+
+      const signer = await provider.getSigner();
+
+      const contract = new ethers.Contract(
+        contractAddress,
+        CrowdFundingABI,
+        signer,
+      );
+
+      // Send ETH as msg.value to the payable contract method.
+      const transaction = await contract.donateToCampaign(campaignId, {
+        value: donationWei,
+      });
+
+      // Wait until the transaction is mined
+      const receipt = await transaction.wait();
+
+      if (!receipt || receipt.status !== 1) {
+        throw new Error("Donation transaction failed on-chain.");
+      }
+
+      return receipt;
+    } catch (error: unknown) {
+      console.error("Donation error:", error);
+      const message = parseBlockchainError(error);
+      setError(message);
+      throw new Error(message, { cause: error });
+    } finally {
+      setIsDonating(false);
+    }
+  };
+
   return (
     <CampaignContext.Provider
       value={{
         createCampaign,
         getCampaign,
         getUserCampaigns,
-        // donateCampaign,
-        // getDonators,
         isCreating,
         error,
         connectWallet,
         address,
+        isDonating,
+        donate,
       }}
     >
       {children}

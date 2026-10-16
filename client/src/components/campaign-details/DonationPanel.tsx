@@ -17,6 +17,7 @@ export default function DonationPanel({
   isExpired,
   txHash,
   donationError,
+  onDonate,
 }) {
   return (
     <div className="sticky top-6 rounded-3xl bg-linear-to-b from-sprout-card via-[#1a2327] to-[#16171d] border border-sprout-green/35 p-6 sm:p-7 shadow-2xl">
@@ -67,9 +68,27 @@ export default function DonationPanel({
 
       {/* Error Banner */}
       {donationError && (
-        <div className="mb-5 p-4 rounded-2xl bg-red-500/15 border border-red-500/40 text-red-300 text-xs flex items-start gap-2 animate-fadeIn">
-          <FiAlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
-          <span className="leading-relaxed">{donationError}</span>
+        <div className="mb-5 p-4 rounded-2xl bg-red-500/15 border border-red-500/40 text-red-300 text-xs flex flex-col gap-2 animate-fadeIn">
+          <div className="flex items-start gap-2">
+            <FiAlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-400" />
+            <span className="leading-relaxed font-medium">{donationError}</span>
+          </div>
+
+          {(donationError.toLowerCase().includes("faucet") ||
+            donationError.toLowerCase().includes("insufficient funds") ||
+            donationError.toLowerCase().includes("out of funds")) && (
+            <div className="pl-6 pt-0.5">
+              <a
+                href="https://cloud.google.com/application/web3/faucet/ethereum/sepolia"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-200 border border-red-500/30 text-[11px] font-semibold transition-all hover:text-white"
+              >
+                <span>Get Free Sepolia ETH</span>
+                <FiExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          )}
         </div>
       )}
 
@@ -127,7 +146,7 @@ export default function DonationPanel({
 
       {/* Primary Action Button */}
       <button
-        // onClick={handleDonate}
+        onClick={onDonate}
         disabled={isDonating || isExpired}
         className={`w-full h-13 rounded-xl font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer shadow-[0_0_20px_rgba(29,192,113,0.35)] disabled:opacity-50 disabled:cursor-not-allowed ${
           isExpired
