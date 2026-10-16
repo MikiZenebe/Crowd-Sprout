@@ -29,6 +29,7 @@ interface CampaignContextType {
     form: CampaignForm,
   ) => Promise<ethers.TransactionReceipt | null>;
   getCampaign: () => Promise<Campaign[]>;
+  getUserCampaigns: () => Promise<Campaign[]>;
   isCreating: boolean;
   error: string | null;
   connectWallet: () => Promise<string | null>;
@@ -261,11 +262,74 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
     }
   };
 
+  /* Fetch campaigns created by the connected user */
+  const getUserCampaigns = async (): Promise<Campaign[]> => {
+    try {
+      setError(null);
+
+      if (!contractAddress) {
+        throw new Error("Contract address is missing.");
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum!);
+
+      const contract = new ethers.Contract(
+        contractAddress,
+        CrowdFundingABI,
+        provider,
+      );
+
+      // Get the currently connected wallet without prompting
+      const accounts: string[] = await provider.send("eth_accounts", []);
+
+      const userAddress = accounts[0];
+
+      if (!userAddress) {
+        throw new Error("Please connect your wallet first.");
+      }
+
+      // Fetch all campaigns
+      const campaigns = await contract.getCampaigns();
+
+      // Filter campaigns belonging to this wallet
+      return campaigns
+        .map(
+          (campaign: Campaign, i: number): Campaign => ({
+            pId: i,
+            owner: campaign.owner,
+            title: campaign.title,
+            description: campaign.description,
+            target: campaign.target,
+            deadline: campaign.deadline,
+            amountCollected: campaign.amountCollected,
+            image: campaign.image,
+          }),
+        )
+        .filter(
+          (campaign: Campaign) =>
+            campaign.owner.toLowerCase() === userAddress.toLowerCase(),
+        );
+    } catch (error: unknown) {
+      console.error("Get user campaigns error:", error);
+
+      setError(
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch user campaigns.",
+      );
+
+      return [];
+    }
+  };
+
   return (
     <CampaignContext.Provider
       value={{
         createCampaign,
         getCampaign,
+        getUserCampaigns,
+        // donateCampaign,
+        // getDonators,
         isCreating,
         error,
         connectWallet,
