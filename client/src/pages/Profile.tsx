@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiCopy,
@@ -15,89 +15,69 @@ import {
   FiLayers,
 } from "react-icons/fi";
 import { calculateBarPercentage, formatEth, truncateAddress } from "../utils";
-
-// Static mock data representation matching your smart contract's Campaign structure
-export interface StaticCampaignItem {
-  pId: number;
-  owner: string;
-  title: string;
-  description: string;
-  target: bigint;
-  deadline: bigint;
-  amountCollected: bigint;
-  image: string;
-  category: string;
-  backersCount: number;
-}
-
-const STATIC_USER_ADDRESS = "0x71C8F61e4b9B500C1258F5B12e9b0151f15cA123";
-
-const STATIC_MY_CAMPAIGNS: StaticCampaignItem[] = [
-  {
-    pId: 0,
-    owner: STATIC_USER_ADDRESS,
-    title: "EcoSprout: Automated Urban Hydroponic Rigs",
-    description:
-      "Developing open-source, IoT-monitored vertical farming units for urban rooftops with zero pesticide footprint and 90% water recycling.",
-    target: 2500000000000000000n, // 2.5 ETH
-    deadline: BigInt(Math.floor(Date.now() / 1000) + 18 * 86400), // 18 days left
-    amountCollected: 1850000000000000000n, // 1.85 ETH (74%)
-    image:
-      "https://images.unsplash.com/photo-1530836369250-ef72a3f5cda8?auto=format&fit=crop&w=800&q=80",
-    category: "Green Tech",
-    backersCount: 19,
-  },
-  {
-    pId: 1,
-    owner: STATIC_USER_ADDRESS,
-    title: "SolSolar: Decentralized Community Microgrid",
-    description:
-      "Tokenized community solar arrays providing clean renewable electricity to off-grid rural clinics across developing regions.",
-    target: 4000000000000000000n, // 4.0 ETH
-    deadline: BigInt(Math.floor(Date.now() / 1000) + 32 * 86400), // 32 days left
-    amountCollected: 4200000000000000000n, // 4.2 ETH (105% - Goal Reached)
-    image:
-      "https://images.unsplash.com/photo-1509391365360-2e959784a276?auto=format&fit=crop&w=800&q=80",
-    category: "Clean Energy",
-    backersCount: 44,
-  },
-  {
-    pId: 2,
-    owner: STATIC_USER_ADDRESS,
-    title: "OceanClean Autonomous Drone Mesh",
-    description:
-      "Solar-powered aquatic surface vessels designed to intercept microplastics in coastal river mouths before reaching open sea.",
-    target: 1500000000000000000n, // 1.5 ETH
-    deadline: BigInt(Math.floor(Date.now() / 1000) + 8 * 86400), // 8 days left
-    amountCollected: 650000000000000000n, // 0.65 ETH (43%)
-    image:
-      "https://images.unsplash.com/photo-1544551763-46a013bb70d5?auto=format&fit=crop&w=800&q=80",
-    category: "Ecology",
-    backersCount: 11,
-  },
-];
+import { useCampaign, type Campaign } from "../context";
 
 type FilterTab = "all" | "active" | "funded";
 
 export default function Profile() {
   const navigate = useNavigate();
+  const { address, getUserCampaigns, connectWallet, error } = useCampaign();
 
-  const [campaigns] = useState<StaticCampaignItem[]>(STATIC_MY_CAMPAIGNS);
+  const [campaigns, setCampaigns] = useState<Campaign[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<FilterTab>("all");
   const [copiedAddress, setCopiedAddress] = useState(false);
   const [copiedLink, setCopiedLink] = useState(false);
-  const [now] = useState(() => Date.now());
+  const [now, setNow] = useState(() => Date.now());
 
-  const handleCopyAddress = () => {
-    navigator.clipboard.writeText(STATIC_USER_ADDRESS);
-    setCopiedAddress(true);
-    setTimeout(() => setCopiedAddress(false), 2000);
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCampaigns = async () => {
+      setIsLoading(true);
+
+      if (!address) {
+        setCampaigns([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const userCampaigns = await getUserCampaigns();
+
+      if (!cancelled) {
+        setCampaigns(userCampaigns);
+        setNow(Date.now());
+        setIsLoading(false);
+      }
+    };
+
+    void loadCampaigns();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [address, getUserCampaigns]);
+
+  const handleCopyAddress = async () => {
+    if (!address) return;
+
+    try {
+      await navigator.clipboard.writeText(address);
+      setCopiedAddress(true);
+      window.setTimeout(() => setCopiedAddress(false), 2000);
+    } catch (copyError) {
+      console.error("Failed to copy wallet address:", copyError);
+    }
   };
 
-  const handleCopyProfileLink = () => {
-    navigator.clipboard.writeText(window.location.href);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2000);
+  const handleCopyProfileLink = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setCopiedLink(true);
+      window.setTimeout(() => setCopiedLink(false), 2000);
+    } catch (copyError) {
+      console.error("Failed to copy profile link:", copyError);
+    }
   };
 
   // Analytics calculations
@@ -110,8 +90,6 @@ export default function Profile() {
   const totalTargetEth = campaigns.reduce((acc, c) => {
     return acc + Number(c.target) / 1e18;
   }, 0);
-
-  const totalBackers = campaigns.reduce((acc, c) => acc + c.backersCount, 0);
 
   const overallProgress =
     totalTargetEth > 0
@@ -146,10 +124,10 @@ export default function Profile() {
                 🌱
               </div>
               <span
-                className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full bg-sprout-green border-2 border-sprout-dark flex items-center justify-center text-[10px] shadow-sm"
-                title="Active on Sepolia"
+                className={`absolute -bottom-1 -right-1 w-5 h-5 rounded-full border-2 border-sprout-dark flex items-center justify-center text-[10px] shadow-sm ${address ? "bg-sprout-green" : "bg-gray-500"}`}
+                title={address ? "Wallet connected" : "Wallet not connected"}
               >
-                ✓
+                {address ? "✓" : "–"}
               </span>
             </div>
 
@@ -174,7 +152,9 @@ export default function Profile() {
                 <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-sprout-dark border border-sprout-border">
                   <span className="w-2 h-2 rounded-full bg-sprout-green animate-pulse" />
                   <span className="text-xs font-mono text-gray-300">
-                    {truncateAddress(STATIC_USER_ADDRESS)}
+                    {address
+                      ? truncateAddress(address)
+                      : "Wallet not connected"}
                   </span>
                   <button
                     onClick={handleCopyAddress}
@@ -190,7 +170,11 @@ export default function Profile() {
                 </div>
 
                 <a
-                  href={`https://sepolia.etherscan.io/address/${STATIC_USER_ADDRESS}`}
+                  href={
+                    address
+                      ? `https://sepolia.etherscan.io/address/${address}`
+                      : undefined
+                  }
                   target="_blank"
                   rel="noreferrer"
                   title="View on Sepolia Etherscan"
@@ -205,6 +189,14 @@ export default function Profile() {
 
           {/* Action CTAs */}
           <div className="flex items-center gap-3 self-start md:self-center shrink-0">
+            {!address && (
+              <button
+                onClick={() => void connectWallet()}
+                className="flex items-center gap-2 px-4 py-3 rounded-xl bg-sprout-green hover:bg-sprout-mint text-white text-xs font-bold transition-all cursor-pointer"
+              >
+                Connect Wallet
+              </button>
+            )}
             <button
               onClick={handleCopyProfileLink}
               className="flex items-center gap-2 px-4 py-3 rounded-xl bg-sprout-card hover:bg-[#252830] text-gray-300 hover:text-white border border-sprout-border hover:border-sprout-green/50 text-xs font-semibold transition-all cursor-pointer"
@@ -284,10 +276,10 @@ export default function Profile() {
             </div>
           </div>
           <div className="text-2xl sm:text-3xl font-extrabold text-white font-mono">
-            {totalBackers}
+            —
           </div>
           <span className="text-[11px] text-sprout-muted mt-1 block">
-            Community contributions received
+            Backer totals are not available here
           </span>
         </div>
 
@@ -362,23 +354,72 @@ export default function Profile() {
       </div>
 
       {/* Campaigns Grid */}
-      {filteredCampaigns.length === 0 ? (
+      {isLoading ? (
+        <div className="p-12 text-center rounded-3xl bg-sprout-card/50 border border-sprout-border text-sm text-sprout-muted">
+          Loading your campaigns from Sepolia...
+        </div>
+      ) : !address ? (
+        <div className="p-12 text-center rounded-3xl bg-sprout-card/50 border border-sprout-border">
+          <h3 className="text-lg font-bold text-white mb-2">
+            Connect your wallet
+          </h3>
+          <p className="text-sm text-sprout-muted mb-5">
+            Connect MetaMask to view campaigns created by your wallet.
+          </p>
+          <button
+            onClick={() => void connectWallet()}
+            className="px-4 py-2 rounded-xl bg-sprout-green hover:bg-sprout-mint text-white text-xs font-semibold transition-all cursor-pointer"
+          >
+            Connect Wallet
+          </button>
+        </div>
+      ) : error && campaigns.length === 0 ? (
+        <div className="p-8 text-center rounded-3xl bg-sprout-card/50 border border-red-500/30">
+          <p className="text-sm text-red-300">{error}</p>
+          <button
+            onClick={() => {
+              setIsLoading(true);
+              void getUserCampaigns().then((result) => {
+                setCampaigns(result);
+                setNow(Date.now());
+                setIsLoading(false);
+              });
+            }}
+            className="mt-4 px-4 py-2 rounded-xl bg-[#252830] hover:bg-[#323640] text-white text-xs font-semibold transition-all cursor-pointer"
+          >
+            Try Again
+          </button>
+        </div>
+      ) : filteredCampaigns.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 sm:p-16 rounded-3xl bg-sprout-card/50 border border-sprout-border text-center my-4">
           <div className="w-16 h-16 rounded-2xl bg-sprout-green/10 flex items-center justify-center text-3xl mb-4">
             🌱
           </div>
           <h3 className="text-lg font-bold text-white mb-1">
-            No Campaigns in this Category
+            {campaigns.length === 0
+              ? "No Campaigns Yet"
+              : "No Campaigns in this Category"}
           </h3>
           <p className="text-xs text-sprout-muted max-w-90 mb-6">
-            You don't have any campaigns matching the "{activeTab}" filter.
+            {campaigns.length === 0
+              ? "You have not created any campaigns with this wallet yet. Start by planting your first campaign."
+              : `You don't have any campaigns matching the "${activeTab}" filter.`}
           </p>
-          <button
-            onClick={() => setActiveTab("all")}
-            className="px-4 py-2 rounded-xl bg-[#252830] hover:bg-[#323640] text-white text-xs font-semibold transition-all cursor-pointer"
-          >
-            Reset Filter
-          </button>
+          {activeTab !== "all" ? (
+            <button
+              onClick={() => setActiveTab("all")}
+              className="px-4 py-2 rounded-xl bg-[#252830] hover:bg-[#323640] text-white text-xs font-semibold transition-all cursor-pointer"
+            >
+              Reset Filter
+            </button>
+          ) : (
+            <button
+              onClick={() => navigate("/create-campaign")}
+              className="px-4 py-2 rounded-xl bg-sprout-green hover:bg-sprout-mint text-white text-xs font-semibold transition-all cursor-pointer"
+            >
+              Create Campaign
+            </button>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -389,9 +430,7 @@ export default function Profile() {
             const isFunded = collectedEthNum >= targetEthNum;
             const daysRemaining = Math.max(
               0,
-              Math.ceil(
-                (Number(item.deadline) * 1000 - now) / (1000 * 86400),
-              ),
+              Math.ceil((Number(item.deadline) * 1000 - now) / (1000 * 86400)),
             );
 
             return (
@@ -429,7 +468,7 @@ export default function Profile() {
                   {/* Badges on Banner */}
                   <div className="absolute top-3 left-3 right-3 flex items-center justify-between pointer-events-none">
                     <span className="px-2.5 py-1 rounded-full bg-sprout-dark/85 backdrop-blur-md border border-white/10 text-[11px] font-semibold text-sprout-mint shadow-sm">
-                      {item.category}
+                      Crowdfunding
                     </span>
 
                     {isFunded ? (
@@ -499,7 +538,7 @@ export default function Profile() {
                   <div className="mt-auto flex items-center justify-between pt-1">
                     <div className="flex items-center gap-1.5 text-xs text-sprout-muted">
                       <FiUsers className="w-3.5 h-3.5 text-sprout-green" />
-                      <span>{item.backersCount} Backers</span>
+                      <span>Campaign #{item.pId}</span>
                     </div>
 
                     <button
