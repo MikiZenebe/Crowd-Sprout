@@ -1,0 +1,6 @@
+# Pinata Cloudflare Worker Environment Variables
+# Obtain your JWT from https://app.pinata.cloud/developers/api-keys
+PINATA_JWT=your_pinata_jwt_here
+
+# Your custom dedicated Pinata Gateway domain
+GATEWAY_URL=your-gateway-name.mypinata.cloud
