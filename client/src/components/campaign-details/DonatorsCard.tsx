@@ -1,8 +1,8 @@
-import React from "react";
 import { FiExternalLink, FiUsers } from "react-icons/fi";
 import { truncateAddress } from "../../utils";
 
 export default function DonatorsCard({ donators, isLoadingDonators }) {
+  console.log(donators);
   return (
     <div className="rounded-3xl bg-sprout-card border border-sprout-border p-6 sm:p-8 shadow-xl">
       <div className="flex items-center justify-between mb-6">
@@ -47,10 +47,10 @@ export default function DonatorsCard({ donators, isLoadingDonators }) {
                 </span>
                 <div>
                   <span className="text-xs font-mono text-gray-200 block">
-                    {truncateAddress(d.donator)}
+                    {truncateAddress(d.address)}
                   </span>
                   <a
-                    href={`https://sepolia.etherscan.io/address/${d.donator}`}
+                    href={`https://sepolia.etherscan.io/address/${d.address}`}
                     target="_blank"
                     rel="noreferrer"
                     className="text-[10px] text-blue-400 hover:underline flex items-center gap-1"

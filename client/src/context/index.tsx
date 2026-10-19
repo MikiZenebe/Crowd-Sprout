@@ -25,6 +25,17 @@ export interface Campaign {
   image: string;
 }
 
+export interface Donator {
+  address: string;
+  amount: bigint;
+}
+
+export interface CampaignDonators {
+  addresses: string[];
+  amounts: bigint[];
+  donators: Donator[];
+}
+
 interface CampaignContextType {
   createCampaign: (
     form: CampaignForm,
@@ -40,6 +51,8 @@ interface CampaignContextType {
     campaignId: number,
     amount: string,
   ) => Promise<ethers.TransactionReceipt | null>;
+
+  getDonators: (campaignId: number) => Promise<CampaignDonators>;
 
   isDonating: boolean;
 }
@@ -415,6 +428,60 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
     }
   };
 
+  /* Get Donators */
+  const getDonators = async (campaignId: number): Promise<CampaignDonators> => {
+    try {
+      setError(null);
+
+      if (!window.ethereum) {
+        throw new Error("MetaMask is not installed.");
+      }
+
+      if (!contractAddress) {
+        throw new Error("Contract address is missing.");
+      }
+
+      if (!Number.isSafeInteger(campaignId) || campaignId < 0) {
+        throw new Error("Invalid campaign ID.");
+      }
+
+      const provider = new ethers.BrowserProvider(window.ethereum);
+
+      const contract = new ethers.Contract(
+        contractAddress,
+        CrowdFundingABI,
+        provider,
+      );
+
+      const [addresses, amounts] = await contract.getDonators(campaignId);
+
+      const donatorAddresses = Array.from(addresses as string[]);
+      const donationAmounts = Array.from(amounts as bigint[]);
+
+      const donators: Donator[] = donatorAddresses.map(
+        (donatorAddress, index) => ({
+          address: donatorAddress,
+          amount: donationAmounts[index],
+        }),
+      );
+
+      return {
+        addresses: donatorAddresses,
+        amounts: donationAmounts,
+        donators,
+      };
+    } catch (error) {
+      console.error("Get donators error:", error);
+
+      const message =
+        error instanceof Error
+          ? error.message
+          : "Failed to fetch campaign donators.";
+
+      setError(message);
+      throw new Error(message, { cause: error });
+    }
+  };
   return (
     <CampaignContext.Provider
       value={{
@@ -427,6 +494,7 @@ export const CampaignProvider = ({ children }: CampaignProviderProps) => {
         address,
         isDonating,
         donate,
+        getDonators,
       }}
     >
       {children}

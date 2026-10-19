@@ -1,37 +1,37 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { ethers } from "ethers";
 import { FiArrowLeft } from "react-icons/fi";
-import { useCampaign, type Campaign } from "../context";
-import { daysLeft, calculateBarPercentage, parseBlockchainError } from "../utils";
+import { useCampaign, type Campaign, type Donator } from "../context";
+import {
+  daysLeft,
+  calculateBarPercentage,
+  parseBlockchainError,
+} from "../utils";
 import CampaignTopBar from "../components/campaign-details/CampaignTopBar";
 import CampaignHero from "../components/campaign-details/CampaignHero";
 import CreatorCard from "../components/campaign-details/CreatorCard";
 import DonatorsCard from "../components/campaign-details/DonatorsCard";
 import DonationPanel from "../components/campaign-details/DonationPanel";
 
-interface DonatorItem {
-  donator: string;
-  donation: string;
-}
-
 const CampaignDetails = () => {
   const location = useLocation();
   const navigate = useNavigate();
-  const { address, donate, isDonating, error } = useCampaign();
+  const { address, donate, isDonating, error, getDonators } = useCampaign();
 
   // Campaign state: prioritize location.state, fallback to fetching by id
   const [campaign] = useState<Campaign | null>(
     (location.state as Campaign) || null,
   );
   const [isLoading] = useState(!campaign);
-  const [donators] = useState<DonatorItem[]>([]);
-  const [isLoadingDonators] = useState(false);
 
   // Donation form state
   const [donationAmount, setDonationAmount] = useState<string>("0.05");
   const [txHash, setTxHash] = useState<string | null>(null);
   const [donationError, setDonationError] = useState<string | null>(null);
+
+  const [donators, setDonators] = useState<Donator[]>([]);
+  const [isLoadingDonators, setIsLoadingDonators] = useState(false);
 
   // Copy address state
   const [copied, setCopied] = useState(false);
@@ -92,7 +92,8 @@ const CampaignDetails = () => {
 
       if (!receipt) {
         setDonationError(
-          error || "Donation failed. Please check your wallet balance and network.",
+          error ||
+            "Donation failed. Please check your wallet balance and network.",
         );
         return;
       }
@@ -103,6 +104,34 @@ const CampaignDetails = () => {
       setDonationError(message);
     }
   };
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const fetchDonators = async () => {
+      setIsLoadingDonators(true);
+
+      try {
+        const result = await getDonators(campaign.pId);
+
+        if (!cancelled) {
+          setDonators(result.donators);
+        }
+      } catch (error) {
+        console.error("Failed to load donators:", error);
+      } finally {
+        if (!cancelled) {
+          setIsLoadingDonators(false);
+        }
+      }
+    };
+
+    void fetchDonators();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [campaign.pId, getDonators]);
 
   // Loading state
   if (isLoading) {
