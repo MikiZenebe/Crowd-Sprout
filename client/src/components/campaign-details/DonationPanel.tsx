@@ -9,6 +9,17 @@ import { truncateAddress } from "../../utils";
 
 const PRESET_AMOUNTS = ["0.01", "0.05", "0.1", "0.5"];
 
+interface DonationPanelProps {
+  address: string | null;
+  donationAmount: string;
+  setDonationAmount: (amount: string) => void;
+  isDonating: boolean;
+  isExpired: boolean;
+  txHash: string | null;
+  donationError: string | null;
+  onDonate: () => void;
+}
+
 export default function DonationPanel({
   address,
   donationAmount,
@@ -18,7 +29,7 @@ export default function DonationPanel({
   txHash,
   donationError,
   onDonate,
-}) {
+}: DonationPanelProps) {
   return (
     <div className="sticky top-6 rounded-3xl bg-linear-to-b from-sprout-card via-[#1a2327] to-[#16171d] border border-sprout-green/35 p-6 sm:p-7 shadow-2xl">
       {/* Header */}

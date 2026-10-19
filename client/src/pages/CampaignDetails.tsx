@@ -76,6 +76,8 @@ const CampaignDetails = () => {
   };
 
   const handleDonate = async () => {
+    if (!campaign) return;
+
     setDonationError(null);
     setTxHash(null);
 
@@ -88,7 +90,7 @@ const CampaignDetails = () => {
     }
 
     try {
-      const receipt = await donate(campaign!.pId, donationAmount);
+      const receipt = await donate(campaign.pId, donationAmount);
 
       if (!receipt) {
         setDonationError(
@@ -106,13 +108,15 @@ const CampaignDetails = () => {
   };
 
   useEffect(() => {
+    if (!campaign) return;
+    const campaignId = campaign.pId;
     let cancelled = false;
 
     const fetchDonators = async () => {
       setIsLoadingDonators(true);
 
       try {
-        const result = await getDonators(campaign.pId);
+        const result = await getDonators(campaignId);
 
         if (!cancelled) {
           setDonators(result.donators);
@@ -131,7 +135,7 @@ const CampaignDetails = () => {
     return () => {
       cancelled = true;
     };
-  }, [campaign.pId, getDonators]);
+  }, [campaign?.pId, getDonators]);
 
   // Loading state
   if (isLoading) {

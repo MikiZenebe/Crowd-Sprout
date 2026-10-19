@@ -1,6 +1,17 @@
-import React from "react";
 import { FiCheckCircle, FiClock, FiUsers } from "react-icons/fi";
 import { formatEth } from "../../utils";
+import type { Campaign, Donator } from "../../context";
+
+interface CampaignHeroProps {
+  campaign: Campaign;
+  remainingDays: number;
+  isExpired: boolean;
+  isFunded: boolean;
+  percentage: number;
+  getImageUrl: (url: string) => string;
+  isLoadingDonators: boolean;
+  donators: Donator[];
+}
 
 export default function CampaignHero({
   campaign,
@@ -11,7 +22,7 @@ export default function CampaignHero({
   getImageUrl,
   isLoadingDonators,
   donators,
-}) {
+}: CampaignHeroProps) {
   return (
     <div className="relative rounded-3xl overflow-hidden bg-sprout-card border border-sprout-border shadow-2xl">
       {/* Banner Image */}

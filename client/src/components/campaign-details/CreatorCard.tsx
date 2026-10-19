@@ -1,6 +1,16 @@
 import { FiCheck, FiCopy, FiExternalLink, FiShield } from "react-icons/fi";
 
-export default function CreatorCard({ owner, handleCopyOwner, copied }) {
+interface CreatorCardProps {
+  owner: string;
+  handleCopyOwner: () => void;
+  copied: boolean;
+}
+
+export default function CreatorCard({
+  owner,
+  handleCopyOwner,
+  copied,
+}: CreatorCardProps) {
   return (
     <div className="rounded-3xl bg-sprout-card border border-sprout-border p-6 sm:p-8 shadow-xl">
       <h3 className="text-xs font-bold uppercase tracking-wider text-sprout-muted mb-4">

@@ -1,8 +1,16 @@
 import { FiExternalLink, FiUsers } from "react-icons/fi";
-import { truncateAddress } from "../../utils";
+import { formatEth, truncateAddress } from "../../utils";
+import type { Donator } from "../../context";
 
-export default function DonatorsCard({ donators, isLoadingDonators }) {
-  console.log(donators);
+interface DonatorsCardProps {
+  donators: Donator[];
+  isLoadingDonators: boolean;
+}
+
+export default function DonatorsCard({
+  donators,
+  isLoadingDonators,
+}: DonatorsCardProps) {
   return (
     <div className="rounded-3xl bg-sprout-card border border-sprout-border p-6 sm:p-8 shadow-xl">
       <div className="flex items-center justify-between mb-6">
@@ -38,7 +46,7 @@ export default function DonatorsCard({ donators, isLoadingDonators }) {
         <div className="space-y-3 max-h-90 overflow-y-auto pr-1">
           {donators.map((d, index) => (
             <div
-              key={`${d.donator}-${index}`}
+              key={`${d.address}-${index}`}
               className="flex items-center justify-between p-3.5 rounded-xl bg-[#16171d] border border-sprout-border hover:border-sprout-green/40 transition-all"
             >
               <div className="flex items-center gap-3">
@@ -63,7 +71,7 @@ export default function DonatorsCard({ donators, isLoadingDonators }) {
 
               <div className="text-right">
                 <span className="text-xs font-bold font-mono text-sprout-mint">
-                  Ξ {d.donation} ETH
+                  Ξ {formatEth(d.amount)} ETH
                 </span>
               </div>
             </div>
